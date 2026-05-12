@@ -147,7 +147,6 @@ class QubitMoverEnv1_Estimator(gym.Env):
 # Depolarizing Estimator
 # =========================================================================
 
-
 class QubitMoverEnv1_D_Estimator(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 4}
 

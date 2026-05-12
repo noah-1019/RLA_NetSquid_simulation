@@ -6,7 +6,7 @@ This module provides functions for working with Randomized Local Alignment (RLA)
 
 ### Node Lists
 
-A **node list** is a sequence of integers representing quantum operations to apply in a protocol. It serves as the input representation for the protocol actions.
+A **node list** is a sequence of integers representing nodes the specific qubit visits in a protocol. It serves as the input representation for the protocol actions.
 
 - **Format**: `[n1, n2, ..., nk]` where each element is an integer
 - **Valid Values**: Integers typically in the range [0, 1, 2, 3]
