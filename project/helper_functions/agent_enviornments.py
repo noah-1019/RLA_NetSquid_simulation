@@ -1,11 +1,9 @@
-import os
-import sys
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
 # Custome module import 
-import RLA_protocol as qm1
+import helper_functions.utils as qm1
 
 
 # =========================================================================
@@ -277,3 +275,97 @@ class QubitMoverEnv1_D_Estimator(gym.Env):
 
     def render(self): pass
     def close(self): pass
+
+
+# Objective function OD implementation.
+class QubitMoverEnv1_OD_Estimator(gym.Env):
+    """
+    We have removed the max number of moves restraint from the agent's choices. Making
+    the technical maximum number of moves 3 * N_max.
+    Custom Environment for the Qubit Mover RL agent. This environment allows for variable 
+    parameter types. Which can be used for curriculum training.
+
+    Custom Environment for the Qubit Mover RL agent.
+    - 3 qubits, each with a path of length 10
+    - Each step, the agent selects a node (1-3) or 0 (measure) for each qubit
+    - Episode ends after a fixed number of steps or when all qubits are measured
+    - The reward is calculated based off of the change in Quantum fisher information
+    Parameters:
+    ------------
+    - parameter_types: str, type of parameter distribution ('uniform', 'normal', 'fixed')
+        - 'uniform': All thetas are uniformly random between 0.05 and 0.5
+        - 'equal': All thetas are equal and randomly chosen between 0.05 and 0.5
+        - 'one_high': One theta is high (0.3-0.5), others low (0.05-0.2)
+        - 'two_high': Two thetas are high (0.3-0.5), one low (0.05-0.2)
+        - 'three_high': All thetas are high (0.3-0.5)
+        - 'three_low': All thetas are low (0.05-0.2)
+        - 'asymetric': Randomly choose between 'one_high' and 'two_high'
+    - min_log: int, minimum log value for normalization
+    - max_log: int, maximum log value for normalization
+    - sensitivity_power: float, sensitivity power for normalization
+    - scaling_factor: float, scaling factor for the final reward
+    - negative_penalty: float, penalty for all moves
+    - h: float, step size for numerical derivatives
+
+    """
+    metadata = {"render_modes": ["human"], "render_fps": 4}
+
+    def __init__(self,
+                parameter_types: str = 'uniform', # defaults to uniformly random
+                ):
+        
+        super().__init__()
+        self.n_qubits = 3
+        self.max_steps = 10
+
+        self.parameter_types = parameter_types
+
+        # Set thetas based on parameter_types
+        self.thetas = np.random.uniform(0.05, 0.5, 3).astype(np.float32)
+
+
+        # Action space: 9 entries, each in range [0, max_steps]
+        self.action_space = spaces.MultiDiscrete([self.max_steps + 1] * 9)
+
+        # Observation space: theta_1, theta_2, theta_3 (each in [0.001, 0.4])
+        # -----------------------------------------------------------------------
+        low = np.array([0.001, 0.001, 0.001], dtype=np.float32)
+        high = np.array([0.4, 0.4, 0.4], dtype=np.float32)
+        self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
+
+        self.reset()
+
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+
+        # Reset thetas based on parameter_types values
+        self.thetas = np.random.uniform(0.05, 0.5, 3).astype(np.float32)
+        self.done = False
+        # Initialize QFIM to zeros; will be updated on steps when paths become valid
+        obs = np.array(self.thetas, dtype=np.float32)
+        return obs, {}
+
+    def step(self, action):
+        # End after the first step
+        self.done = True
+        # Add 1 to first 3 entries to convert to valid form.
+        valid_action = action.copy()
+        valid_action[0] += 1
+        valid_action[1] += 1
+        valid_action[2] += 1
+
+        reward = 0
+
+        obs = np.array(self.thetas, dtype=np.float32)
+        return obs, float(reward), True, False, {}
+
+
+    def render(self):
+        print("Step:", self.current_step)
+        print("State:\n", self.state)
+
+    def close(self):
+        pass
+
+
+    
