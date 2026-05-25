@@ -602,6 +602,10 @@ def estimator_D(all_protocols: list[list[list[int]]],
 
     num_tials_per = trials_per_iteration
     guess = current_guess # renaming for clarity
+    # clip guess to valid range
+    guess = [max(0.001, theta) for theta in guess]
+    guess = [min(0.4, theta) for theta in guess]
+
     measurement_proportions = all_measurement_proportions # renaming for clarity
     node_lists = all_protocols # renaming for clarity
 
@@ -648,7 +652,7 @@ def estimator_D(all_protocols: list[list[list[int]]],
 
 
                 grad = u.grad_p_D(filtered_path,[x1,x2,x3])
-                w = (n_j*p - k_j) / (p*(1.0 - p))   # scalar weight
+                w = (n_j*p - k_j) / (p*(1.0 - p)+1e-10)   # scalar weight
 
                 for idx in range(3):
                     gradient_totals[idx] += w * grad[idx]
