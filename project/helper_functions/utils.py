@@ -320,6 +320,98 @@ def optimized_nodes_to_qfim(node_lists: list[list[int]],
     return F
 
 
+# Objective function approach
+# ------------------------------
+def compute_P0_from_Abf(protocol_matrix: np.ndarray, theta: list[float]) -> list[float]:
+    # Iterate over each row of A and compute the corresponding Q_i and p(0) for that row, then return the average p(0) across the three rows.
+    p0s = []
+    q_list = 1 - 2 * np.asarray(theta) # Convert thetas to q values for bit flip noise
+    for i in range(3):
+        counts = protocol_matrix[i,:]
+        logQ_i = np.dot(counts, np.log(q_list))  # Compute log(Q_i) in log space
+        Q_i = np.exp(logQ_i)  # Convert back to Q_i
+        p0_i = 0.5 * (1 + Q_i)  # Compute
+        p0s.append(p0_i)
+
+    return p0s
+
+def compute_S_from_Abf(protocol_matrix: np.ndarray, theta: list[float]) -> np.ndarray:
+    """
+    S is given as a diaonal matrix with entries S_ii = Q_i^2/(1-Q_i^2)
+    """
+    # Compute q list
+    np_theta = np.asarray(theta)
+    q = 1 - 2 * np_theta
+
+        # Compute q list
+    np_theta = np.asarray(theta)
+    q = 1 - 2 * np_theta
+
+    # Compute Q_i for each qubit
+    log_q = np.log(q)
+    log_Qs_2 = 2*protocol_matrix @ log_q  # Matrix multiplication to get log_Qs for each qubit
+    Qs_2 = np.exp(log_Qs_2)
+    # Compute S_inv matrix
+    S = np.zeros((3,3))
+    for i in range(3): 
+        S[i,i] = Qs_2[i] / (1 - Qs_2[i]) if Qs_2[i] < 1 else 1e10  # Avoid division by zero or negative values
+
+    return S
+
+def compute_S_inv_from_Abf(protocol_matrix: np.ndarray, theta: list[float]) -> np.ndarray:
+    """
+    Compute the inverse of the S matrix given a protocol matrix and theta. This is a helper function for optimization.
+    """
+    # Compute q list
+    np_theta = np.asarray(theta)
+    q = 1 - 2 * np_theta
+
+    # Compute Q_i for each qubit
+    log_q = np.log(q)
+    log_Qs_2 = 2*protocol_matrix @ log_q  # Matrix multiplication to get log_Qs for each qubit
+
+    # Compute S_inv matrix
+    S_inv = np.zeros((3,3))
+    for i in range(3):
+        S_inv[i,i] = np.expm1(-log_Qs_2[i]) - 1  
+    return S_inv
+
+# Actual objective function implementation
+def objective_function_from_Abf(protocol_matrix: np.ndarray, theta: list[float]) -> float:
+    S_inv = compute_S_inv_from_Abf(protocol_matrix, theta)
+    try:
+        A_inv = np.linalg.inv(protocol_matrix) 
+        A_inv_T = A_inv.T
+        objective_value = np.trace(A_inv_T @ S_inv @ A_inv)
+        return objective_value
+
+    except np.linalg.LinAlgError:
+        return -1  # Assign an impossibly bad value if the matrix is singular or not invertible
+
+def LU_to_qcrb_bf(LU: np.ndarray, theta: list[float]) -> float:
+    obj= objective_function_from_Abf(LU_to_A(LU), theta)
+    if obj <= -1:
+        return 1e10
+    q_list = 1 - 2 * np.asarray(theta)
+    # compute q dot q
+    q_dot_q = np.dot(q_list, q_list)
+    return obj*q_dot_q
+
+def LU_to_objective_bf(LU: np.ndarray, theta: list[float]) -> float:
+    return objective_function_from_Abf(LU_to_A(LU), theta)
+
+def normalized_LU_objective_bf(LU: np.ndarray, theta: list[float]) -> float:
+    Obj = LU_to_objective_bf(LU, theta)
+    if Obj > 1e10 or Obj <= -1: # Clip impossibly bad values to -1 for better training stability
+        return -1
+    
+    eps = 1e-10
+    f = 2*(1/(1 + Obj+eps)**(1/20))-1 # Normalize to (0,1] with better protocols having values closer to 1
+    return f
+
+
+
+
 # ----------------------------------------------
 ## Depolarizing noise fumctions
 # ----------------------------------------------
@@ -448,6 +540,22 @@ def LU_to_A(LU: list[int]) -> np.ndarray:
             A[i][i] += 1
 
     return A
+
+def LU_to_protocol(LU):
+    LU[0]+=1
+    LU[1]+=1
+    LU[2]+=1
+
+    # Parity check is baked into the LU_to_A function, so we just need to convert to A and then to protocol
+    A = LU_to_A(LU)
+
+    protocol = A_to_protocol(A)
+    return protocol
+
+def LU_to_node_list(LU):
+    protocol = LU_to_protocol(LU)
+    node_lists = protocol_to_node_list(protocol)
+    return node_lists
 
 def A_to_protocol(A)-> list[list[int]]:
     """
@@ -720,3 +828,4 @@ def grad_p_D(single_path_list: list[int],
     dp3 = prefactor * (n3 / (1.0 - (4.0 / 3.0) * theta3))
 
     return [dp1, dp2, dp3]
+

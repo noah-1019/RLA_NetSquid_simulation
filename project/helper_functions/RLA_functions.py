@@ -164,7 +164,44 @@ def get_qcrb_direct(thetas: list[float], model):
 
     return qcrb, protocol
 
-def committee_predict_BF(models: list, thetas: list[float]):
+def get_qcrb_OBF(thetas:list[float], model):
+    """ 
+    Given a list of thetas, run the model in the QubitMoverEnv1_ObjectiveFunction environment and
+    abstract the QCRB and move (state) from the final observation.
+    """
+
+    env = envs.QubitMoverEnv1_OD_Estimator()
+    obs, info = env.reset()
+    done = False
+
+    # Override thetas in the environment
+    env.thetas = thetas
+
+    while not done:
+        # Get action from model
+        action, _ = model.predict(obs, deterministic=True)
+        
+        # Take step in environment
+        obs, reward, done, truncated, info = env.step(action)
+
+        if truncated:
+            done = True
+
+    # Get the A matrix
+    valid_action=action.copy()
+    valid_action[0]+=1
+    valid_action[1]+=1
+    valid_action[2]+=1
+
+    node_list = u.LU_to_node_list(valid_action) # Calculate the QCRB
+    qfim = u.optimized_nodes_to_qfim(node_list, thetas)  # Convert protocol to QFIM
+    qcrb = u.calculate_QCRB_numerical(qfim) # Calculate the QCRB
+
+    A = u.LU_to_A(valid_action) # Get the A matrix from the observation and action
+    return qcrb, A # Get the LU matrix from the observation and action
+
+
+def committee_predict_BF(models: list, thetas: list[float],is_OD: bool = False) -> tuple[float, list]:
     """
     Search a local theta stencil and return the protocol with the lowest QCRB.
 
@@ -175,6 +212,7 @@ def committee_predict_BF(models: list, thetas: list[float]):
     Args:
         models (list): Trained models used to propose candidate protocols.
         thetas (list[float]): Three input theta values.
+        is_OD (bool): Whether to use the OD estimator.
 
     Returns:
         tuple[float, list]: The minimum QCRB value and the best protocol found.
@@ -206,6 +244,20 @@ def committee_predict_BF(models: list, thetas: list[float]):
         for perturbed_thetas in perturbed_thetas_list
     ]
 
+    if is_OD: # Use alternative function
+        for model in models:
+            _,A = get_qcrb_OBF(thetas,model)
+
+            node_list = u.A_to_node_list(A) # Calculate the QCRB
+            qfim = u.optimized_nodes_to_qfim(node_list, thetas)  # Convert protocol to QFIM
+            actual_qcrb = u.calculate_QCRB_numerical(qfim) # Calculate the QCRB
+            
+            if actual_qcrb < min_qcrb:
+                #print("New minimum QCRB found:", qcrb, "with thetas:", perturbed_thetas)
+                min_qcrb = actual_qcrb
+                best_A= A  # Extract protocol (state) from observation
+
+        return min_qcrb, best_A
 
         
     for perturbed_thetas in perturbed_thetas_list:

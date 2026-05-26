@@ -141,6 +141,7 @@ class QubitMoverEnv1_Estimator(gym.Env):
     def render(self): pass
     def close(self): pass
 
+
 # =========================================================================
 # Depolarizing Estimator
 # =========================================================================
@@ -277,7 +278,8 @@ class QubitMoverEnv1_D_Estimator(gym.Env):
     def close(self): pass
 
 
-# Objective function OD implementation.
+# Objective function OD implementation. Works for both bit flip and depolarizing, 
+# since the only difference is in the QFIM calculation.
 class QubitMoverEnv1_OD_Estimator(gym.Env):
     """
     We have removed the max number of moves restraint from the agent's choices. Making
