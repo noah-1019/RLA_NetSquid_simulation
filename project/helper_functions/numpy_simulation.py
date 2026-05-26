@@ -7,8 +7,8 @@ Simulate the quantum network using numpy, this is a simple less robust version o
 import numpy as np
 import helper_functions.utils as utils
 
-def simulate_bit_flip(thetas: list[float], protocol:list[list[int]],trials: int = 1000) -> list[tuple[int,float]]:
-    """
+def simulate_bit_flip(thetas: list[float], protocol:list[list[int]],trials: int = 1000) -> list[float]:
+    """`
     Simulate the bit flip noise model using numpy. This is a simple simulation that applies the bit flip noise to the protocol and returns the estimated thetas.
 
     Parameters:
@@ -23,7 +23,9 @@ def simulate_bit_flip(thetas: list[float], protocol:list[list[int]],trials: int 
     Returns:
     -------------
     list[float]
-        The proportion of successful states (0) measured for each qubit, which can be used to estimate the thetas. Each element in the list corresponds to a qubit and is a tuple of (number of qubits used, amount of successful states measured).
+        The proportion of successful states (0) measured for each qubit, which can be used to 
+        estimate the thetas. Each element in the list corresponds to a qubit and is a tuple of 
+        (number of qubits used, amount of successful states measured).
     """
 
     rng = np.random.default_rng()
@@ -53,7 +55,7 @@ def simulate_bit_flip(thetas: list[float], protocol:list[list[int]],trials: int 
     results = [iteration_measurements[i]/trials for i in range(3)]
     return results
 
-def simulate_depolarizing_noise(thetas: list[float], protocol:list[list[int]],trials: int = 1000) -> list[tuple[int,float]]:
+def simulate_depolarizing_noise(thetas: list[float], protocol:list[list[int]],trials: int = 1000) -> list[float]:
     """
     Simulate the depolarizing noise model using numpy. This is a simple simulation that applies the depolarizing noise to the protocol and returns the estimated thetas.
 
@@ -71,8 +73,10 @@ def simulate_depolarizing_noise(thetas: list[float], protocol:list[list[int]],tr
 
     Returns:
     -------------
-    list[tuple[int,float]]
-        A list of tuples, where each tuple contains the number of qubits used and the amount of successful states (0) measured.
+    list[float]
+        The proportion of successful states (0) measured for each qubit, which can be used to 
+        estimate the thetas. Each element in the list corresponds to a qubit and is a tuple of 
+        (number of qubits used, amount of successful states measured).
     """
 
     rng = np.random.default_rng()
